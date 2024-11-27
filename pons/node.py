@@ -77,7 +77,7 @@ class Node(object):
                     if net.name in node.net:
                         self.neighbors[net.name].append(node.id)
 
-    def send(self, netsim: pons.NetSim, to_nid: int, msg: Message):
+    def send(self, netsim: pons.NetSim, to_nid: int, msg: PayloadMessage):
         for net in self.net.values():
             # tx_time = net.tx_time(msg.size)
             if to_nid == BROADCAST_ADDR:
@@ -171,7 +171,7 @@ class Node(object):
                     # (self.id, msg, to_nid))
                     pass
 
-    def on_recv(self, netsim: pons.NetSim, from_nid: int, msg: Message):
+    def on_recv(self, netsim: pons.NetSim, from_nid: int, msg: PayloadMessage):
         yield netsim.env.timeout(0)
         for net in self.net.values():
             if from_nid in self.neighbors[net.name]:

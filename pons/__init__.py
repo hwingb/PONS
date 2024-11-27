@@ -16,4 +16,4 @@ from .mobility import (
     generate_randomwaypoint_movement,
 )
 from .apps import PingApp, App
-from .message import Message, message_event_generator, message_burst_generator
+from .message import PayloadMessage, message_event_generator, message_burst_generator
