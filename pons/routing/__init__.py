@@ -5,3 +5,4 @@ from .firstcontact import FirstContactRouter
 from .sprayandwait import SprayAndWaitRouter
 from .prophet import PRoPHETRouter, PRoPHETConfig
 from .static import StaticRouter, RouteEntry
+from .hypergossip import Hypergossip, Beacon, IDsMessage

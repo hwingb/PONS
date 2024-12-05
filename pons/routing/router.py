@@ -301,6 +301,7 @@ class Router(object):
             self.on_duplicate_msg_received(msg, remote_id)
 
     def on_duplicate_msg_received(self, msg: pons.PayloadMessage, remote_node_id: int) -> None:
+        self.log("Duplicated payload message received: %s from %d" % (msg, remote_node_id))
         pass
 
     def on_receive(self, msg: pons.Message, remote_node_id: int) -> None:
@@ -311,13 +312,13 @@ class Router(object):
         :param remote_node_id:
         :return:
         """
-        if msg.id == "HELLO":
+        if isinstance(msg, pons.Hello):
             self._on_scan_received(deepcopy(msg), remote_node_id)
-        elif type(msg) is pons.PayloadMessage:
+        elif isinstance(msg, pons.PayloadMessage):
             # TODO is another check for payload message necessary?
             self._on_msg_received(deepcopy(msg), remote_node_id)
         else:
-            raise NotImplementedError("unknown message type received")
+            raise NotImplementedError("unknown message type received:", type(msg))
 
     def remember(self, peer_id, msg_id: str):
         if isinstance(msg_id, pons.PayloadMessage):

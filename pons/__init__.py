@@ -16,6 +16,5 @@ from .mobility import (
     generate_randomwaypoint_movement,
 )
 from .apps import PingApp, App
-from .message import PayloadMessage, Hello, Beacon, message_event_generator, message_burst_generator
-
-
+from .message import PayloadMessage, Hello, message_event_generator, message_burst_generator
+from .routing.hypergossip import Beacon, IDsMessage
