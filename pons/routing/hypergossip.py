@@ -1,10 +1,9 @@
 from copy import copy
 import pons
-from pons import Router, PayloadMessage
+from pons import Router, PayloadMessage, Hello
 from pons.event_log import event_log
 from typing import override
 
-HELLO_MSG_SIZE = 42
 
 # https://simpy.readthedocs.io/en/latest/topical_guides/events.html#let-time-pass-by-the-timeout
 # sub_proc = yield start_delayed(env, sub(env), delay=3)
@@ -35,8 +34,11 @@ class Hypergossip(Router):
         return "HypergossipRouter"
 
     @override
-    def on_scan_received(self, msg: pons.PayloadMessage, remote_id: int):
-        pass
+    def on_scan_received(self, msg: pons.Hello, remote_id: int):
+        if type(msg) is Beacon:
+            pass
+        else:
+            super()._on_scan_received()
 
     @override
     def on_peer_discovered(self, peer_id):
@@ -56,3 +58,17 @@ class Hypergossip(Router):
     def on_duplicate_msg_received(self, msg: pons.PayloadMessage, remote_node_id: int) -> None:
         pass
 
+
+
+class Beacon(Hello):
+    """HG Beacon with additional cluster information"""
+    def __init__(self, src: int, created: float, cluster_id: int):
+       super().__init__(src, created)
+       self.cluster_id = cluster_id
+
+    @override
+    def size(self) -> int:
+        # add cluster ID
+        # TODO
+        print("check size of integer!", self.cluster_id.__sizeof__())
+        return super().size() + self.cluster_id.__sizeof__()

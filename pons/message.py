@@ -35,9 +35,16 @@ class Message:
         return 42
 
 
+class Hello(Message):
+    """Hello Beacon"""
+    def __init__(self, src: int, created: float):
+        super().__init__("HELLO", src, pons.BROADCAST_ADDR, created)
+
+
+
 @dataclass
 class PayloadMessage(Message):
-    """A message."""
+    """Payload message."""
 
     def __init__(self, id: str, src: int, dst: int,
                  created: float,
@@ -48,7 +55,7 @@ class PayloadMessage(Message):
                  content: dict|None = None,
                  metadata = None):
         super().__init__(id, src, dst, created)
-        self.size = size
+
         self.hops = 0
         self.ttl = ttl
         self.src_service = src_service
@@ -56,13 +63,20 @@ class PayloadMessage(Message):
         self.content = content
         self.metadata = metadata
 
+        if size is not None:
+            self.size = size
+
+
     @override
     def size(self) -> int:
         if self.size is not None:
             return self.size
         else:
-            # TODO add real message size
-            return super().size() # TODO
+            s: int = super().size()
+            # TODO add real message size, hops, ttl, etc
+            s += 42
+            self.size = s
+
 
     def __str__(self):
         return "Message(%s, src=%d.%d, dst=%d.%d, size=%d)" % (
@@ -82,24 +96,6 @@ class PayloadMessage(Message):
         return now - self.created > self.ttl
 
 
-class Hello(Message):
-    """Hello Beacon"""
-    def __init__(self, src: int, created: float):
-        super().__init__("HELLO", src, pons.BROADCAST_ADDR, created)
-
-
-class Beacon(Hello):
-    """Beacon with additional cluster information"""
-    def __init__(self, src: int, created: float, cluster_id: int):
-       super().__init__(src, created)
-       self.cluster_id = cluster_id
-
-    @override
-    def size(self) -> int:
-        # add cluster ID
-        # TODO
-        print("check size of integer!", self.cluster_id.__sizeof__())
-        return super().size() + self.cluster_id.__sizeof__()
 
 def message_event_generator(netsim, msggenconfig):
     """A message generator."""

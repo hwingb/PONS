@@ -139,11 +139,8 @@ class Router(object):
                 self.netsim.nodes[self.my_id].send(
                     self.netsim,
                     pons.BROADCAST_ADDR,
-                    pons.PayloadMessage(
-                        "HELLO",
+                    pons.Hello(
                         self.my_id,
-                        pons.BROADCAST_ADDR,
-                        size=HELLO_MSG_SIZE,
                         created=self.netsim.env.now,
                     ),
                 )
@@ -198,8 +195,8 @@ class Router(object):
     def on_tx_succeeded(self, msg_id: str, remote_id: int):
         pass
 
-    def _on_scan_received(self, msg: pons.PayloadMessage, remote_node_id: int):
-        '''
+    def _on_scan_received(self, msg: pons.Hello, remote_node_id: int):
+        """
         @changed: from router.on_scan_received
 
         Internal function for the router to work with HELLO messages
@@ -209,9 +206,9 @@ class Router(object):
         :param msg:
         :param remote_node_id:
         :return:
-        '''
+        """
         #
-        if msg.id == "HELLO" and remote_node_id not in self.peers:
+        if remote_node_id not in self.peers:
             self.peers.append(remote_node_id)
             # self.log("NEW PEER: %d (%s)" % (remote_id, self.peers))
             self.on_peer_discovered(remote_node_id)
@@ -220,14 +217,14 @@ class Router(object):
 
         self.on_scan_received(msg, remote_node_id)
 
-    def on_scan_received(self, msg: pons.PayloadMessage, remote_node_id: int):
-        '''
+    def on_scan_received(self, msg: pons.Hello, remote_node_id: int):
+        """
         TODO adapt same procedure as with _on_msg_received and on_msg_received
 
         :param msg:
         :param remote_node_id:
         :return:
-        '''
+        """
         self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
 
 
@@ -238,13 +235,13 @@ class Router(object):
         self.log("msg received: %s from %d" % (msg, remote_node_id))
 
     def _on_msg_received(self, msg: pons.PayloadMessage, remote_id: int):
-        '''
-        Internal router function to track payload message reception.
+        """
+        Protected router function to track payload message reception.
 
         :param msg:
         :param remote_id:
         :return:
-        '''
+        """
         event_log(
             self.env.now,
             "ROUTER",
@@ -307,18 +304,20 @@ class Router(object):
         pass
 
     def on_receive(self, msg: pons.Message, remote_node_id: int) -> None:
-        '''
+        """
         Call from outside for all messages that are received on the router.
 
         :param msg:
         :param remote_node_id:
         :return:
-        '''
+        """
         if msg.id == "HELLO":
             self._on_scan_received(deepcopy(msg), remote_node_id)
         elif type(msg) is pons.PayloadMessage:
             # TODO is another check for payload message necessary?
             self._on_msg_received(deepcopy(msg), remote_node_id)
+        else:
+            raise NotImplementedError("unknown message type received")
 
     def remember(self, peer_id, msg_id: str):
         if isinstance(msg_id, pons.PayloadMessage):
