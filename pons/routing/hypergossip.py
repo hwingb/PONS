@@ -3,19 +3,12 @@ import pons
 from pons import Router, PayloadMessage, Hello
 from pons.event_log import event_log
 from typing import override
-
-# https://simpy.readthedocs.io/en/latest/topical_guides/events.html#let-time-pass-by-the-timeout
-# sub_proc = yield start_delayed(env, sub(env), delay=3)
-# ret = yield sub_proc
+import random
+import hashlib
 
 """
 TODO 
-- adapt call for _on_received
-- new overhead message types
-- adapt separation for hello messages 
-- require new hello message? with cluster ID 
-- call procedure of _on_msg_received and on_msg_received
-- lists for neighbor ids and stuff
+- requires to set random seed again?
 
 optional TODOs:
 - adaptations for dynamic beacon/hello intervals
@@ -34,17 +27,39 @@ class Hypergossip(Router):
         self.broadcasting_from_queue = False
         self.broadcast_queue: list[pons.PayloadMessage] = list()
 
+        self.neighbors: dict[int, float] = {}
+
+        self.neighborhood_removal_time = self.scan_interval * 2
+
     @override
     def __str__(self):
         return "HypergossipRouter"
 
     @override
-    def on_peer_discovered(self, peer_id):
-        pass
+    def add(self, msg: pons.PayloadMessage) -> None:
+        """
+        If possible, add a new message to the system. Add it directly as first element
+        to the broadcast queue, activate transmission if required.
+        """
+        if self._store_add(msg):
+            self.broadcast_queue.insert(0, msg)
+
+            if not self.broadcasting_from_queue:
+                self.__broadcast_from_queue()
+
 
     @override
-    def on_msg_received(self, msg, remote_id):
-        pass
+    def on_msg_received(self, msg: pons.PayloadMessage, remote_node_id) -> None:
+        """
+        Handle incoming message. If explicitly for this node, router has
+        already handled delivery to the upper layers. Only handle forwarding
+        to others in this place.
+        """
+        self.log("msg received: %s from %d" % (msg, remote_node_id))
+        if msg.dst != self.my_id:
+            self._store_add(msg)
+            self.forward(msg)
+
 
     @override
     def on_receive(self, msg: pons.Message, remote_node_id: int) -> None:
@@ -61,34 +76,55 @@ class Hypergossip(Router):
         else:
             super().on_receive(msg, remote_node_id)
 
-    def forward(self, msg: pons.PayloadMessage):
-        """
-        TODO gossip forward, add bc queue, start queue forward
 
-        :param msg:
-        :return:
+    def forward(self, msg: pons.PayloadMessage) -> None:
         """
-        raise NotImplementedError
+        Forward a received message with a specific probability (aka gossiping!).
+        Only for received messages! Messages from a node's application must use the add function
+        for correct handling.
+        """
 
-    def __broadcast_from_queue(self):
+        if random.random() <= self._gossip_probability():
+            self.log("Gossip: Message %s added to broadcast queue." % msg)
+            self.broadcast_queue.append(msg)
+
+            # start broadcast if required
+            if not self.broadcasting_from_queue:
+                self.__broadcast_from_queue()
+        else:
+            self.log("Message %s was not forwarded because of gossip drop." % msg)
+
+
+    def __broadcast_from_queue(self) -> None:
+        """
+        Broadcast process to send packets from the queue.
+        """
+
         if len(self.broadcast_queue) == 0:
             self.broadcasting_from_queue = False
             return
 
+        self.broadcasting_from_queue = True
+        self.log("Start broadcast from queue.")
+
         # simpy event process
-        while True:
+        while self.broadcasting_from_queue:
 
             while len(self.broadcast_queue) > 0:
                 # retrieve a valid message from the beginning of the queue, directly drop invalid ones
                 msg = self.broadcast_queue.pop(0)
                 if isinstance(msg, pons.PayloadMessage) and not msg.is_expired(self.netsim.env.now):
                     break
+                else:
+                    self.log("Drop message %s from broadcast queue." % msg)
             else:
                 # no valid messages, terminate broadcast process
                 self.broadcasting_from_queue = False
+                self.log("Stop broadcast from queue.")
                 return
 
             # found message, rebroadcast
+            self.log("Broadcast from queue.")
             self.send(pons.BROADCAST_ADDR, msg)
 
             yield self.env.timeout(self.broadcast_delay)
@@ -96,7 +132,34 @@ class Hypergossip(Router):
 
 
     def __parse_br_information(self, br_info: list[str]):
-        raise NotImplementedError
+        """
+        On reception of another node's broadcast received information table,
+        a node filters out messages already known to both from its own message
+        store and puts messages not known to the other node into its
+        broadcasting queue for further spread.
+        """
+
+        # all unique ids of known messages
+        delta_msgs: list[str] = self.__local_buffer_keys()
+        # remove duplicates in both lists (already known to sender of br info)
+        delta_msgs = [item for item in delta_msgs if item not in br_info]
+
+        if len(delta_msgs) == 0:
+            self.log("BR info received, no delta to known messages found")
+            return
+
+        # retrieve all messages from the store via their ID that are in delta_msgs
+        msgs_to_send = [msg for msg in self.store if msg.unique_id() in delta_msgs]
+
+        for msg in msgs_to_send:
+            # filter messages already in the BC queue
+            if msg not in self.broadcast_queue:
+                self.broadcast_queue.append(msg)
+
+        # start broadcast if required
+        if not self.broadcasting_from_queue:
+            self.__broadcast_from_queue()
+
 
     def __check_beacon_process(self, msg: pons.Beacon) -> None:
         """
@@ -109,28 +172,62 @@ class Hypergossip(Router):
             if not msg.cluster_hash == self.__local_buffer_hash():
                 self.next_beacon_contains_IDs = True
 
-    def __local_buffer_keys(self) -> list:
-        # TODO
-        raise NotImplementedError
+
+    def __local_buffer_keys(self) -> list[str]:
+        """
+        :return: List of unique IDs of messages inside the node's storage.
+        """
+        return [msg.unique_id() for msg in self.store]
 
     def __local_buffer_hash(self) -> int:
-        # TODO
-        raise NotImplementedError
+        """
+        :return: Integer of (16 byte) md5 hash of local buffer message IDs
+        """
+        # sort set to ensure consistent order
+        sorted_strings = sorted(self.__local_buffer_keys())
+        # concatenate strings
+        concatenated_string = ''.join(sorted_strings)
+        # calculate 16 byte-hash
+        hash_int = int(hashlib.md5(concatenated_string.encode()).digest())
+        return hash_int
+
 
     def __neighborhood_hash(self) -> int:
-        # TODO
-        raise NotImplementedError
+        """
+        :return: Integer of (16 byte) md5 hash of known neighbors / peers
+        """
+        # Sort the set to ensure consistent order
+        sorted_integers = sorted(self.peers)
+        # convert to string for hashing
+        concatenated_integers = ''.join(map(str, sorted_integers))
+        # calculate 16 byte-hash
+        hash_int = int(hashlib.md5(concatenated_integers.encode()).digest())
+        return hash_int
+
+
+    def _gossip_probability(self):
+        n = len(self.peers)
+        return (
+            0.3 if n >= 23 else
+            0.5 if n >= 15 else
+            0.6 if n >= 12 else
+            0.7 if n >= 10 else
+            0.8 if n >= 8 else
+            1
+        )
 
     @override
     def on_duplicate_msg_received(self, msg: pons.PayloadMessage, remote_node_id: int) -> None:
         """
-        Remove received duplicates from the broadcast queue (if scheduled).
+        Duplicate payload message received.
+        If scheduled, remove received duplicates from the broadcast queue to reduce load on the wireless medium.
         """
         self.log("Duplicated payload message received: %s from %d" % (msg, remote_node_id))
 
         if msg in self.broadcast_queue:
             self.log("Remove duplicated message from broadcast queue: %s" % msg)
             self.broadcast_queue.remove(msg)
+
 
     @override
     def scan(self):
@@ -140,7 +237,15 @@ class Hypergossip(Router):
         super.last_peer_found = self.netsim.env.now
 
         while True:
-            self.peers.clear()
+            # self.peers.clear()
+            # I think clearing all peers is not a good idea! Should be adapted to allow for missed beacons and more
+            # adaptive neighborhood discovery approaches
+            for k in self.neighbors.keys():
+                # remove neighbor if have not seen within multiple consecutive intervals
+                if self.neighbors.get(k) + self.neighborhood_removal_time < self.env.now:
+                    self.neighbors.pop(k)
+                    # also remove from router's peer list
+                    self.peers.pop(k)
 
             # send beacons only while not already transmitting
             if not self.broadcasting_from_queue:
@@ -170,6 +275,12 @@ class Hypergossip(Router):
                     )
             yield self.env.timeout(self.scan_interval)
 
+    def on_scan_received(self, msg: pons.Hello, remote_node_id: int):
+        """
+        Add the peer and the time of the reception to the neighborhood list.
+        """
+        self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
+        self.neighbors[remote_node_id] = self.env.now
 
 
 
@@ -183,10 +294,8 @@ class Beacon(Hello):
 
     @override
     def size(self) -> int:
-        # add cluster ID
-        # TODO
-        print("check size of integer!", self.cluster_hash.__sizeof__())
-        return super().size() + self.cluster_hash.__sizeof__() + self.message_hash.__sizeof__()
+        # add cluster and message hash (each 16 byte integers) to message size
+        return super().size() + 32
 
 
 class IDsMessage(Beacon):
@@ -202,7 +311,7 @@ class IDsMessage(Beacon):
     @override
     def size(self) -> int:
         # add msg IDs
-        # TODO could be improved by not using strings but UUIDs as identifiers
+        # TODO could probably be improved by not using strings but UUIDs as identifiers?
         s: int = super().size()
         for id in self.IDs:
             s += len(id.encode('utf-8'))
