@@ -46,9 +46,9 @@ class Router(object):
         )
 
     def add(self, msg: pons.PayloadMessage):
-        self.store_add(msg)
+        self._store_add(msg)
 
-    def store_add(self, msg: pons.PayloadMessage):
+    def _store_add(self, msg: pons.PayloadMessage):
         if self.capacity > 0 and self.used + msg.size > self.capacity:
             # self.log("store full, no room for msg %s" % msg.id)
             self.store_cleanup()
@@ -199,13 +199,7 @@ class Router(object):
         """
         @changed: from router.on_scan_received
 
-        Internal function for the router to work with HELLO messages
-
-        TODO
-
-        :param msg:
-        :param remote_node_id:
-        :return:
+        Process HELLO messages.
         """
         #
         if remote_node_id not in self.peers:

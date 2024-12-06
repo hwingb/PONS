@@ -105,7 +105,7 @@ class StaticRouter(Router):
 
     def add(self, msg):
         # self.log("adding new msg to store %s" % msg)
-        if self.store_add(msg):
+        if self._store_add(msg):
             self.forward(msg)
 
     def forward(self, msg):
@@ -170,6 +170,6 @@ class StaticRouter(Router):
     def on_msg_received(self, msg, remote_id, was_known: bool):
         # self.log("msg received: %s from %d" % (msg, remote_id))
         if not was_known and msg.dst != self.my_id:
-            self.store_add(msg)
+            self._store_add(msg)
             # self.log("msg not arrived yet", self.my_id)
             self.forward(msg)

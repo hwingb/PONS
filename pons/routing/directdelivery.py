@@ -10,7 +10,7 @@ class DirectDeliveryRouter(Router):
 
     def add(self, msg):
         # print("adding new msg to store")
-        if self.store_add(msg):
+        if self._store_add(msg):
             self.forward(msg)
 
     def forward(self, msg):
@@ -31,6 +31,6 @@ class DirectDeliveryRouter(Router):
     def on_msg_received(self, msg, remote_id, was_known):
         # self.log("msg received: %s from %d" % (msg, remote_id))
         if not was_known and msg.dst != self.my_id:
-            self.store_add(msg)
+            self._store_add(msg)
             # self.log("msg not arrived yet", self.my_id)
             self.forward(msg)

@@ -1,4 +1,5 @@
 from .router import Router
+from .. import PayloadMessage
 
 
 class EpidemicRouter(Router):
@@ -10,7 +11,7 @@ class EpidemicRouter(Router):
 
     def add(self, msg):
         # self.log("adding new msg (%s) to store" % msg.id)
-        if self.store_add(msg):
+        if self._store_add(msg):
             # self.log("forwarding msg (%s)" % msg.id)
             self.forward(msg)
 
@@ -44,9 +45,9 @@ class EpidemicRouter(Router):
                 if not self.msg_already_spread(msg, peer_id):
                     self.forward(msg)
 
-    def on_msg_received(self, msg, remote_id, was_known):
+    def on_msg_received(self, msg: PayloadMessage, remote_id: int):
         # self.log("msg received: %s from %d" % (msg, remote_id))
-        if not was_known and msg.dst != self.my_id:
-            self.store_add(msg)
+        if msg.dst != self.my_id:
+            self._store_add(msg)
             # self.log("msg not arrived yet", self.my_id)
             self.forward(msg)
