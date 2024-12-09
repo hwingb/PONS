@@ -1,6 +1,5 @@
 from .simulation import NetSim
-from .node import generate_nodes, Node, Message, generate_nodes_from_graph
-from .routing import Router, EpidemicRouter
+from .node import generate_nodes, Node, generate_nodes_from_graph
 from .net import (
     NetworkSettings,
     ContactPlan,
@@ -8,13 +7,13 @@ from .net import (
     CoreContact,
     CoreContactPlan,
 )
-from .routing import Router, EpidemicRouter
 from .mobility import (
     Ns2Movement,
     OneMovement,
     OneMovementManager,
     generate_randomwaypoint_movement,
 )
+from .message import Message, PayloadMessage, Hello
+from .routing import Router
 from .apps import PingApp, App
-from .message import PayloadMessage, Hello, message_event_generator, message_burst_generator
-from .routing.hypergossip import Beacon, IDsMessage
+from .message import message_event_generator, message_burst_generator

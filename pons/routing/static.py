@@ -1,12 +1,11 @@
 from typing import List, Optional
-from pons.node import PayloadMessage
 from dataclasses import dataclass
 from pons.simulation import NetSim
 from .router import Router
 import networkx as nx
 import fnmatch
 import random
-
+import pons
 
 @dataclass(frozen=True)
 class RouteEntry:
@@ -26,7 +25,7 @@ class RouteEntry:
     def __repr__(self):
         return str(self)
 
-    def get_next_hop(self, msg: PayloadMessage) -> Optional[int]:
+    def get_next_hop(self, msg: pons.PayloadMessage) -> Optional[int]:
         if isinstance(self.dst, str):
             if fnmatch.fnmatch(str(msg.dst), self.dst):
                 return self.next_hop
