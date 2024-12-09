@@ -190,6 +190,7 @@ class Router(object):
         pass
 
     def _on_tx_succeeded(self, msg_id: str, remote_id: int):
+        self.remember(remote_id, msg_id)
         self.on_tx_succeeded(msg_id, remote_id)
 
     def on_tx_succeeded(self, msg_id: str, remote_id: int):
@@ -212,15 +213,8 @@ class Router(object):
         self.on_scan_received(msg, remote_node_id)
 
     def on_scan_received(self, msg: pons.Hello, remote_node_id: int):
-        """
-        TODO adapt same procedure as with _on_msg_received and on_msg_received
-
-        :param msg:
-        :param remote_node_id:
-        :return:
-        """
-        self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
-
+        # self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
+        pass
 
     def on_peer_discovered(self, peer_id):
         self.log("peer discovered: %d" % peer_id)
@@ -327,7 +321,7 @@ class Router(object):
         if isinstance(msg_id, pons.PayloadMessage):
             msg_id = msg_id.unique_id()
 
-        if msg_id in self.history:
+        if msg_id in self.history and peer_id in self.history[msg_id]:
             self.history[msg_id].remove(peer_id)
 
     def is_msg_known(self, msg: pons.PayloadMessage):
