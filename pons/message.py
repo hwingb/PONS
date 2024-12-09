@@ -12,6 +12,7 @@ class Message:
         self.src = src
         self.dst = dst
         self.created = created
+        self.size = self.get_size()
 
     @override
     def __str__(self):
@@ -19,20 +20,21 @@ class Message:
             self.id,
             self.src,
             self.dst,
-            self.size(),
+            self.size,
         )
 
-    def size(self) -> int:
+    def get_size(self) -> int:
         '''
         Message size in byte.
-
-        TODO
-        size of str/id
-        size of src+dst+created (int+int+float)
-
-        :return:
         '''
-        return 42
+        s: int = len(self.id.encode('utf-8'))
+        s += 32+32+32 # TODO assuming 32bytes for each field... fix?
+        return s
+
+
+    def unique_id(self) -> str:
+        return "%s-%d-%d" % (self.id, self.src, self.created)
+
 
 
 class Hello(Message):
@@ -65,21 +67,19 @@ class PayloadMessage(Message):
 
         if size is not None:
             self.size = size
+        else:
+            self.size = self.get_size()
 
 
     @override
-    def size(self) -> int:
-        if self.size is not None:
-            return self.size
-        else:
-            s: int = super().size()
-            # TODO add real message size, hops, ttl, etc
-            s += 42
-            self.size = s
-
+    def get_size(self) -> int:
+        s: int = super().get_size()
+        s += 4 * 32 # hops, ttl, service x2
+        # TODO add content and metadata
+        return s
 
     def __str__(self):
-        return "Message(%s, src=%d.%d, dst=%d.%d, size=%d)" % (
+        return "PayloadMessage(%s, src=%d.%d, dst=%d.%d, size=%d)" % (
             self.id,
             self.src,
             self.src_service,
@@ -88,8 +88,6 @@ class PayloadMessage(Message):
             self.size,
         )
 
-    def unique_id(self) -> str:
-        return "%s-%d-%d" % (self.id, self.src, self.created)
 
     def is_expired(self, now):
         # print("is_expired: %d + %d > %d" % (self.created, self.ttl, now))
