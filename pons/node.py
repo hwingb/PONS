@@ -3,7 +3,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import List
 import pons
-from pons.message import Message
 
 from pons.net.common import BROADCAST_ADDR, NetworkSettings
 from simpy.util import start_delayed
@@ -77,7 +76,7 @@ class Node(object):
                     if net.name in node.net:
                         self.neighbors[net.name].append(node.id)
 
-    def send(self, netsim: pons.NetSim, to_nid: int, msg: PayloadMessage):
+    def send(self, netsim: pons.NetSim, to_nid: int, msg: pons.Message):
         for net in self.net.values():
             # tx_time = net.tx_time(msg.size)
             if to_nid == BROADCAST_ADDR:
@@ -171,7 +170,7 @@ class Node(object):
                     # (self.id, msg, to_nid))
                     pass
 
-    def on_recv(self, netsim: pons.NetSim, from_nid: int, msg: PayloadMessage):
+    def on_recv(self, netsim: pons.NetSim, from_nid: int, msg: pons.Message):
         yield netsim.env.timeout(0)
         for net in self.net.values():
             if from_nid in self.neighbors[net.name]:
@@ -189,25 +188,27 @@ class Node(object):
                     },
                 )
                 if self.router is not None:
-                    if msg.id == "HELLO":
-                        self.router.on_scan_received(deepcopy(msg), from_nid)
-                    else:
-                        self.router._on_msg_received(deepcopy(msg), from_nid)
+                    # send message directly to router
+                    self.router.on_receive(msg, from_nid)
             else:
                 # print("Node %d received msg %s from %d (not neighbor)" %
                 #      (to_nid, msg, from_nid))
-                netsim.net_stats["drop"] += 1
-                netsim.nodes[from_nid].router._on_tx_failed(msg.unique_id(), self.id)
-                pons.simulation.event_log(
-                    netsim.env.now,
-                    "NET",
-                    {
-                        "event": "RX_FAIL",
-                        "id": self.id,
-                        "msg": msg.unique_id(),
-                        "to": from_nid,
-                    },
-                )
+                if not isinstance(msg, pons.PayloadMessage):
+                    self.log("Not a payload message (%s), do not track TX fail" % msg)
+                else:
+                    netsim.net_stats["drop"] += 1
+                    netsim.nodes[from_nid].router._on_tx_failed(msg.unique_id(), self.id)
+
+                    pons.simulation.event_log(
+                        netsim.env.now,
+                        "NET",
+                        {
+                            "event": "RX_FAIL",
+                            "id": self.id,
+                            "msg": msg.unique_id(),
+                            "to": from_nid,
+                        },
+                    )
 
 
 def generate_nodes(
