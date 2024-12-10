@@ -1,14 +1,11 @@
 import random
 import json
-
 # import cProfile
-
-import pons
 import pons.routing
 
 RANDOM_SEED = 42
 # SIM_TIME = 3600*24*7
-SIM_TIME = 600
+SIM_TIME = 1000
 NET_RANGE = 100
 NUM_NODES = 100
 WORLD_SIZE = (1000, 1000)

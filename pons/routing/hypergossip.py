@@ -179,13 +179,15 @@ class HypergossipRouter(Router):
                 if isinstance(msg, pons.PayloadMessage) and not msg.is_expired(self.netsim.env.now):
                     break
                 else:
-                    self.log("Drop message %s from broadcast queue. Expired=%s" % (msg, msg.is_expired(self.netsim.env.now)))
+                    self.log("Delete message %s from broadcast queue. Expired=%s" % (msg, msg.is_expired(self.netsim.env.now)))
+                    self.store_del(msg)
             else:
                 # no valid messages, terminate broadcast process
                 self.broadcasting_from_queue = False
                 return
 
             # found message, rebroadcast
+            self.netsim.routing_stats["started"] += 1
             self.send(pons.BROADCAST_ADDR, msg)
 
             yield self.env.timeout(self.broadcast_delay)

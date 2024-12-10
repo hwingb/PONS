@@ -249,7 +249,7 @@ class Router(object):
         if not was_known:
             self.remember(remote_id, msg.unique_id())
             msg.hops += 1
-            if msg.dst == self.my_id:
+            if msg.dst == self.my_id: # TODO what about broadcasts?
                 # self.log("msg (%s) arrived on %s" % (msg.id, self.my_id))
                 self.stats["delivered"] += 1
                 self.netsim.routing_stats["delivered"] += 1
