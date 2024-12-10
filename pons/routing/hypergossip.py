@@ -4,15 +4,11 @@ from typing import override
 import random
 import hashlib
 from .router import Router
-from simpy.util import start_delayed
 
 """
 TODO 
 - requires to set random seed again?
-
-optional TODOs:
-- adaptations for dynamic beacon/hello intervals
-- 
+- adaptive broadcast delays?
 """
 class Beacon(pons.Hello):
     """HG Beacon with additional cluster information"""
@@ -66,16 +62,22 @@ class IDsMessage(Beacon):
         )
 
 
-
-
 class HypergossipRouter(Router):
+    """
+    Router implementation based on the hypergossip MANET routing protocol.
+
+    Original paper:
+    Abdelmajid Khelil, Pedro José Marrón, Christian Becker, Kurt Rothermel. "Hypergossiping: A generalized
+    broadcast strategy for mobile ad hoc networks", Ad Hoc Networks, Volume 5, Issue 5, 2007,
+    https://doi.org/10.1016/j.adhoc.2006.03.001.
+    """
 
     def __init__(self, scan_interval=2.0, capacity=0, apps=None):
         super(HypergossipRouter, self).__init__(scan_interval, capacity, apps)
         # self.store = []
         self.next_beacon_contains_IDs = False
 
-        self.broadcast_delay = 0.05 # TODO is this in seconds??
+        self.broadcast_delay = 0.05 # seconds
         self.broadcasting_from_queue = False
         self.broadcast_queue: list[pons.PayloadMessage] = list()
 
@@ -101,10 +103,6 @@ class HypergossipRouter(Router):
                 self.env.process(self.__broadcast_from_queue())
 
 
-        else:
-            print()
-
-
     @override
     def on_msg_received(self, msg: pons.PayloadMessage, remote_node_id) -> None:
         """
@@ -121,7 +119,7 @@ class HypergossipRouter(Router):
     @override
     def on_receive(self, msg: pons.Message, remote_node_id: int) -> None:
         """
-        Extend router on_receive function with a switch for hypergossip messages.
+        Extend router on_receive function with a switch for hypergossip overhead messages.
         """
         if isinstance(msg, IDsMessage):
             self.__parse_br_information(msg.get_IDs())
@@ -133,8 +131,13 @@ class HypergossipRouter(Router):
         else:
             super().on_receive(msg, remote_node_id)
 
-    def __broadcast_delay(self):
+
+    def __broadcast_delay(self) -> float:
+        """
+        :return: A random float from the interval [1ms, broadcast_delay].
+        """
         return random.uniform(0.001, self.broadcast_delay)
+
 
     def forward(self, msg: pons.PayloadMessage) -> None:
         """
@@ -142,19 +145,14 @@ class HypergossipRouter(Router):
         Only for received messages! Messages from a node's application must use the add function
         for correct handling.
         """
-        a = random.random()
-        b = self._gossip_probability()
-        print(a, b, a <= b)
-
         if random.random() <= self._gossip_probability():
-            self.log("Gossip: Message %s added to broadcast queue." % msg)
+            # gossip the message to neighborhood
             self.broadcast_queue.append(msg)
 
-            # start broadcast if required
+            # start broadcast with delay if required
             if not self.broadcasting_from_queue:
                 self.env.process(self.__broadcast_from_queue(self.__broadcast_delay()))
-        else:
-            self.log("Message %s was not forwarded because of gossip drop." % msg)
+
 
 
     def __broadcast_from_queue(self, initial_delay: float = 0) -> None:
@@ -166,19 +164,17 @@ class HypergossipRouter(Router):
             return
 
         if initial_delay > 0:
+            # delayed broadcast
             self.broadcasting_from_queue = True
-            self.log("Delaying broadcast from queue")
             yield self.env.timeout(initial_delay)
         else:
             self.broadcasting_from_queue = True
-
-        self.log("Start broadcast from queue.")
 
         # simpy event process
         while self.broadcasting_from_queue:
 
             while len(self.broadcast_queue) > 0:
-                # retrieve a valid message from the beginning of the queue, directly drop invalid ones
+                # retrieve a valid message from the beginning of the queue, directly drop invalid (expired) ones
                 msg = self.broadcast_queue.pop(0)
                 if isinstance(msg, pons.PayloadMessage) and not msg.is_expired(self.netsim.env.now):
                     break
@@ -187,11 +183,9 @@ class HypergossipRouter(Router):
             else:
                 # no valid messages, terminate broadcast process
                 self.broadcasting_from_queue = False
-                self.log("Stop broadcast from queue.")
                 return
 
             # found message, rebroadcast
-            self.log("Broadcast from queue.")
             self.send(pons.BROADCAST_ADDR, msg)
 
             yield self.env.timeout(self.broadcast_delay)
@@ -212,7 +206,6 @@ class HypergossipRouter(Router):
         delta_msgs = [item for item in delta_msgs if item not in br_info]
 
         if len(delta_msgs) == 0:
-            self.log("BR info received, no delta to known messages found")
             return
 
         # retrieve all messages from the store via their ID that are in delta_msgs
@@ -274,6 +267,7 @@ class HypergossipRouter(Router):
 
 
     def _gossip_probability(self):
+        """Gossip probability as approximation based on neighborhood density."""
         n = len(self.peers)
         return (
             0.3 if n >= 23 else
@@ -290,10 +284,7 @@ class HypergossipRouter(Router):
         Duplicate payload message received.
         If scheduled, remove received duplicates from the broadcast queue to reduce load on the wireless medium.
         """
-        #self.log("Duplicated payload message received: %s from %d" % (msg, remote_node_id))
-
         if msg in self.broadcast_queue:
-            self.log("Remove duplicated message from broadcast queue: %s" % msg)
             self.broadcast_queue.remove(msg)
 
 
@@ -331,6 +322,7 @@ class HypergossipRouter(Router):
                             self.__neighborhood_hash()
                         ),
                     )
+                    # reset required!
                     self.next_beacon_contains_IDs = False
                 else:
                     self.netsim.nodes[self.my_id].send(
@@ -349,9 +341,4 @@ class HypergossipRouter(Router):
         """
         Add the peer and the time of the reception to the neighborhood list.
         """
-        # self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
         self.neighbors[remote_node_id] = self.env.now
-
-
-
-
