@@ -20,6 +20,8 @@ class SprayAndWaitRouter(Router):
 
     def add(self, msg):
         # print("adding new msg to store")
+        if msg.metadata == None:
+            msg.metadata = {}
         msg.metadata["copies"] = self.copies
         if self.store_add(msg):
             self.forward(msg)
