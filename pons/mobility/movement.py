@@ -131,7 +131,7 @@ def generate_randomwaypoint_movement(
             way_x = random.randint(0, width)
             way_y = random.randint(0, height)
             speed = random.random() * (max_speed - min_speed) + min_speed
-            pause = random.randint(min_pause, max_pause)
+            pause = random.randint(int(min_pause), int(max_pause))
             cur_time += pause
             dist = math.sqrt((way_x - x) ** 2 + (way_y - y) ** 2)
             time = dist / speed

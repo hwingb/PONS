@@ -1,16 +1,13 @@
 import random
 import json
-
 # import cProfile
-
-import pons
 import pons.routing
 
 RANDOM_SEED = 42
 # SIM_TIME = 3600*24*7
-SIM_TIME = 3600 * 24
-NET_RANGE = 50
-NUM_NODES = 10
+SIM_TIME = 1000
+NET_RANGE = 100
+NUM_NODES = 100
 WORLD_SIZE = (1000, 1000)
 CAPACITY = 10000
 # CAPACITY = 0
@@ -25,7 +22,7 @@ moves = pons.generate_randomwaypoint_movement(
 )
 
 net = pons.NetworkSettings("WIFI_50m", range=NET_RANGE)
-epidemic = pons.routing.EpidemicRouter(capacity=CAPACITY)
+epidemic = pons.routing.HypergossipRouter(capacity=CAPACITY)
 
 nodes = pons.generate_nodes(NUM_NODES, net=[net], router=epidemic)
 config = {"movement_logger": False, "peers_logger": False, "event_logging": False}

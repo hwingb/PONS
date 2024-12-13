@@ -1,4 +1,4 @@
-from copy import copy
+from copy import copy, deepcopy
 import pons
 from pons.event_log import event_log
 
@@ -35,7 +35,7 @@ class Router(object):
     def log(self, msg):
         print("[ %f ] [%s : %s] ROUTER: %s" % (self.env.now, self.my_id, self, msg))
 
-    def send(self, to_nid: int, msg: pons.Message):
+    def send(self, to_nid: int, msg: pons.PayloadMessage):
         self.stats["tx"] += 1
         self.remember(to_nid, msg.unique_id())
         self.netsim.nodes[self.my_id].send(self.netsim, to_nid, msg)
@@ -45,10 +45,10 @@ class Router(object):
             {"event": "TX", "src": self.my_id, "dst": to_nid, "msg": msg.unique_id()},
         )
 
-    def add(self, msg: pons.Message):
-        self.store_add(msg)
+    def add(self, msg: pons.PayloadMessage):
+        self._store_add(msg)
 
-    def store_add(self, msg: pons.Message):
+    def _store_add(self, msg: pons.PayloadMessage):
         if self.capacity > 0 and self.used + msg.size > self.capacity:
             # self.log("store full, no room for msg %s" % msg.id)
             self.store_cleanup()
@@ -72,7 +72,7 @@ class Router(object):
         )
         return True
 
-    def store_del(self, msg: pons.Message, dropped: bool = False):
+    def store_del(self, msg: pons.PayloadMessage, dropped: bool = False):
         self.used -= msg.size
         self.store.remove(msg)
         event = "DROPPED" if dropped else "REMOVED"
@@ -109,7 +109,7 @@ class Router(object):
                 # self.log("removing expired msg %s" % msg.id)
                 self.store_del(msg, dropped=True)
 
-    def make_room_for(self, msg: pons.Message):
+    def make_room_for(self, msg: pons.PayloadMessage):
         if msg.size < self.capacity:
             # self.log("making room for msg %s" % msg.id)
             self.store.sort(key=lambda m: (m.size, m.created))
@@ -139,12 +139,9 @@ class Router(object):
                 self.netsim.nodes[self.my_id].send(
                     self.netsim,
                     pons.BROADCAST_ADDR,
-                    pons.Message(
-                        "HELLO",
+                    pons.Hello(
                         self.my_id,
-                        pons.BROADCAST_ADDR,
-                        HELLO_MSG_SIZE,
-                        self.netsim.env.now,
+                        created=self.netsim.env.now,
                     ),
                 )
             else:
@@ -193,25 +190,46 @@ class Router(object):
         pass
 
     def _on_tx_succeeded(self, msg_id: str, remote_id: int):
+        self.remember(remote_id, msg_id)
         self.on_tx_succeeded(msg_id, remote_id)
 
     def on_tx_succeeded(self, msg_id: str, remote_id: int):
         pass
 
-    def on_scan_received(self, msg: pons.Message, remote_id: int):
-        # self.log("[%s] scan received: %s from %d" %
-        #         (self.my_id, msg, remote_id))
-        if msg.id == "HELLO" and remote_id not in self.peers:
-            self.peers.append(remote_id)
+    def _on_scan_received(self, msg: pons.Hello, remote_node_id: int):
+        """
+        @changed: from router.on_scan_received
+
+        Process HELLO messages.
+        """
+        #
+        if remote_node_id not in self.peers:
+            self.peers.append(remote_node_id)
             # self.log("NEW PEER: %d (%s)" % (remote_id, self.peers))
-            self.on_peer_discovered(remote_id)
+            self.on_peer_discovered(remote_node_id)
         # elif remote_id in self.peers:
         # self.log("DUP PEER: %d" % remote_id)
+
+        self.on_scan_received(msg, remote_node_id)
+
+    def on_scan_received(self, msg: pons.Hello, remote_node_id: int):
+        # self.log("[%s] scan received: %s from %d" % (self.my_id, msg, remote_node_id))
+        pass
 
     def on_peer_discovered(self, peer_id):
         self.log("peer discovered: %d" % peer_id)
 
-    def _on_msg_received(self, msg: pons.Message, remote_id: int):
+    def on_msg_received(self, msg: pons.PayloadMessage, remote_node_id: int):
+        self.log("msg received: %s from %d" % (msg, remote_node_id))
+
+    def _on_msg_received(self, msg: pons.PayloadMessage, remote_id: int):
+        """
+        Protected router function to track payload message reception.
+
+        :param msg:
+        :param remote_id:
+        :return:
+        """
         event_log(
             self.env.now,
             "ROUTER",
@@ -231,7 +249,7 @@ class Router(object):
         if not was_known:
             self.remember(remote_id, msg.unique_id())
             msg.hops += 1
-            if msg.dst == self.my_id:
+            if msg.dst == self.my_id: # TODO what about broadcasts?
                 # self.log("msg (%s) arrived on %s" % (msg.id, self.my_id))
                 self.stats["delivered"] += 1
                 self.netsim.routing_stats["delivered"] += 1
@@ -264,16 +282,34 @@ class Router(object):
                             "msg": msg.unique_id(),
                         },
                     )
+            self.on_msg_received(msg, remote_id)
         else:
             # self.log("msg already known", self.history)
             self.netsim.routing_stats["dups"] += 1
-        self.on_msg_received(msg, remote_id, was_known)
+            self.on_duplicate_msg_received(msg, remote_id)
 
-    def on_msg_received(self, msg: pons.Message, remote_id: int, was_known: bool):
-        self.log("msg received: %s from %d" % (msg, remote_id))
+    def on_duplicate_msg_received(self, msg: pons.PayloadMessage, remote_node_id: int) -> None:
+        self.log("Duplicated payload message received: %s from %d" % (msg, remote_node_id))
+        pass
+
+    def on_receive(self, msg: pons.Message, remote_node_id: int) -> None:
+        """
+        Call from outside for all messages that are received on the router.
+
+        :param msg:
+        :param remote_node_id:
+        :return:
+        """
+        if isinstance(msg, pons.Hello):
+            self._on_scan_received(deepcopy(msg), remote_node_id)
+        elif isinstance(msg, pons.PayloadMessage):
+            # TODO is another check for payload message necessary?
+            self._on_msg_received(deepcopy(msg), remote_node_id)
+        else:
+            raise NotImplementedError("unknown message type received:", type(msg))
 
     def remember(self, peer_id, msg_id: str):
-        if isinstance(msg_id, pons.Message):
+        if isinstance(msg_id, pons.PayloadMessage):
             msg_id = msg_id.unique_id()
 
         if msg_id not in self.history:
@@ -282,17 +318,16 @@ class Router(object):
         self.history[msg_id].add(peer_id)
 
     def forget(self, peer_id, msg_id: str):
-        if isinstance(msg_id, pons.Message):
+        if isinstance(msg_id, pons.PayloadMessage):
             msg_id = msg_id.unique_id()
 
-        if msg_id in self.history:
-            if peer_id in self.history[msg_id]:
-                self.history[msg_id].remove(peer_id)
+        if msg_id in self.history and peer_id in self.history[msg_id]:
+            self.history[msg_id].remove(peer_id)
 
-    def is_msg_known(self, msg: pons.Message):
+    def is_msg_known(self, msg: pons.PayloadMessage):
         return msg.unique_id() in self.history
 
-    def msg_already_spread(self, msg: pons.Message, remote_id):
+    def msg_already_spread(self, msg: pons.PayloadMessage, remote_id):
         if msg.unique_id() not in self.history:
             return False
 

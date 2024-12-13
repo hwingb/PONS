@@ -25,7 +25,7 @@ class App(object):
         self.my_id = my_id
         self.netsim = netsim
 
-    def _on_msg_received(self, msg: pons.Message):
+    def _on_msg_received(self, msg: pons.PayloadMessage):
         event_log(
             self.netsim.env.now,
             "APP",
@@ -33,7 +33,7 @@ class App(object):
         )
         self.on_msg_received(msg)
 
-    def send(self, msg: pons.Message):
+    def send(self, msg: pons.PayloadMessage):
         self.netsim.routing_stats["created"] += 1
         event_log(
             self.netsim.env.now,
@@ -42,7 +42,7 @@ class App(object):
         )
         self.netsim.nodes[self.my_id].router.add(msg)
 
-    def on_msg_received(self, msg: pons.Message):
+    def on_msg_received(self, msg: pons.PayloadMessage):
         self.log("msg received: %s" % (msg))
 
 
@@ -78,7 +78,7 @@ class PingApp(App):
         self.log("starting")
         self.netsim.env.process(self.run())
 
-    def on_msg_received(self, msg: pons.Message):
+    def on_msg_received(self, msg: pons.PayloadMessage):
         if msg.id.startswith("ping-"):
             self.log("ping received: %s" % (msg.id))
             self.msgs_received += 1
@@ -88,12 +88,12 @@ class PingApp(App):
                     "start": msg.created,
                     "end": self.netsim.env.now,
                 }
-                pong_msg = pons.Message(
+                pong_msg = pons.PayloadMessage(
                     msg.id.replace("ping", "pong"),
                     self.my_id,
                     msg.src,
-                    msg.size,
-                    self.netsim.env.now,
+                    size=msg.size,
+                    created=self.netsim.env.now,
                     ttl=msg.ttl,
                     src_service=msg.dst_service,
                     dst_service=msg.src_service,
@@ -115,12 +115,12 @@ class PingApp(App):
                 delay = random.random() * self.interval
                 yield self.netsim.env.timeout(delay)
             while True:
-                ping_msg = pons.Message(
+                ping_msg = pons.PayloadMessage(
                     "ping-%d" % self.msgs_sent,
                     self.my_id,
                     self.dst,
-                    self.size,
-                    self.netsim.env.now,
+                    size=self.size,
+                    created=self.netsim.env.now,
                     ttl=self.ttl,
                     src_service=self.service,
                     dst_service=self.dst_service,
