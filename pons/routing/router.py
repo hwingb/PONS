@@ -286,7 +286,8 @@ class Router(object):
             msg_id = msg_id.unique_id()
 
         if msg_id in self.history:
-            self.history[msg_id].remove(peer_id)
+            if peer_id in self.history[msg_id]:
+                self.history[msg_id].remove(peer_id)
 
     def is_msg_known(self, msg: pons.Message):
         return msg.unique_id() in self.history
