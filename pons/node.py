@@ -6,6 +6,7 @@ import pons
 from pons.message import Message
 
 from pons.net.common import BROADCAST_ADDR, NetworkSettings
+# from pons.routing.router import Router
 from simpy.util import start_delayed
 import networkx as nx
 from dataclasses import dataclass
@@ -20,11 +21,15 @@ class Node(object):
         node_name: str = "",
         net: List[NetworkSettings] = None,
         router: pons.routing.Router = None,
+        prefix: str = ""
     ):
         self.id = node_id
         self.name = node_name
         if self.name == "":
-            self.name = "n%d" % self.id
+            if prefix != "":
+                self.name = "%s%d" % (prefix, self.id)
+            else:
+                self.name = "n%d" % self.id
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
@@ -215,19 +220,20 @@ def generate_nodes(
     offset: int = 0,
     net: List[NetworkSettings] = None,
     router: pons.routing.Router = None,
+    prefix: str = "",
 ):
     nodes = []
     if net == None:
         net = []
     for i in range(num_nodes):
-        nodes.append(Node(i + offset, net=deepcopy(net), router=deepcopy(router)))
+        nodes.append(Node(i + offset, net=deepcopy(net), router=deepcopy(router), prefix=prefix))
     return nodes
 
 
 def generate_nodes_from_graph(
     graph: nx.Graph,
     net: List[NetworkSettings] = None,
-    router: Router = None,
+    router: pons.Router = None,
     contactplan: pons.net.ContactPlan = None,
 ):
     nodes = []

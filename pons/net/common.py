@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pons.event_log import event_log
+from pons.net.contactplan import CommonContactPlan
 
 import random
 
@@ -12,7 +13,17 @@ if TYPE_CHECKING:
 
 BROADCAST_ADDR = 0xFFFF
 
-
+def format_network_bandwidth(bandwidth: int) -> str:
+    if bandwidth < 1_000:
+        return f'{bandwidth} bit/s'
+    elif bandwidth < 1_000_000:
+        return f'{bandwidth/1_000:.1f} kbit/s'
+    elif bandwidth < 1_000_000_000:
+        return f'{bandwidth/1_000_000:.1f} Mbit/s'
+    elif bandwidth < 1_000_000_000_000:
+        return f'{bandwidth/1_000_000_000:.1f} Gbit/s'
+    elif bandwidth < 1_000_000_000_000_000:
+        return f'{bandwidth/1_000_000_000_000:.1f} Tbit/s'
 class NetworkSettings(object):
     """A network settings."""
 
