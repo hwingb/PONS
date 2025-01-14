@@ -251,7 +251,7 @@ class HypergossipRouter(Router):
         # concatenate strings
         concatenated_string = ''.join(sorted_strings)
         # calculate 16 byte-hash
-        hash_int = int.from_bytes(hashlib.md5(concatenated_string.encode()).digest())
+        hash_int = int.from_bytes(hashlib.md5(concatenated_string.encode()).digest(), byteorder="big")
         return hash_int
 
 
@@ -264,7 +264,7 @@ class HypergossipRouter(Router):
         # convert to string for hashing
         concatenated_integers = ''.join(map(str, sorted_integers))
         # calculate 16 byte-hash
-        hash_int = int.from_bytes(hashlib.md5(concatenated_integers.encode()).digest())
+        hash_int = int.from_bytes(hashlib.md5(concatenated_integers.encode()).digest(), byteorder="big")
         return hash_int
 
 
