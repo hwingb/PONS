@@ -39,10 +39,20 @@ class Router(object):
         self.stats["tx"] += 1
         self.remember(to_nid, msg.unique_id())
         self.netsim.nodes[self.my_id].send(self.netsim, to_nid, msg)
+        
+        log_info = {
+                "event": "TX",
+                "from": self.my_id,
+                "to": to_nid,
+                "src": msg.src,
+                "dst": msg.dst,
+                "msg": msg.unique_id(),
+                "size": msg.size
+        }
         event_log(
             self.env.now,
             "ROUTER",
-            {"event": "TX", "src": self.my_id, "dst": to_nid, "msg": msg.unique_id()},
+            log_info,
         )
 
     def add(self, msg: pons.PayloadMessage):
@@ -230,17 +240,20 @@ class Router(object):
         :param remote_id:
         :return:
         """
-        event_log(
-            self.env.now,
-            "ROUTER",
-            {
+
+        log_info = {
                 "event": "RX",
-                "at": self.my_id,
                 "from": remote_id,
+                "to": self.my_id,
                 "src": msg.src,
                 "dst": msg.dst,
                 "msg": msg.unique_id(),
-            },
+                "size": msg.size
+        }
+        event_log(
+            self.env.now,
+            "ROUTER",
+            log_info,
         )
         self.stats["rx"] += 1
         # self.log("msg received: %s from %d" % (msg, remote_id))
