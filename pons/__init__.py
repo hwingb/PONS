@@ -1,6 +1,5 @@
 from .simulation import NetSim, NetStats, RoutingStats
-from .node import generate_nodes, Node, Message, generate_nodes_from_graph
-from .routing import Router, EpidemicRouter
+from .node import generate_nodes, Node, generate_nodes_from_graph
 from .net import (
     NetworkSettings,
     ContactPlan,
