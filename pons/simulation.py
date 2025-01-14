@@ -13,6 +13,8 @@ import pons
 from pons.node import Node
 from pons.event_log import event_log
 
+from dataclasses import dataclass
+
 aborted = False
 
 
@@ -46,6 +48,29 @@ def printProgressBar(
     if iteration == total:
         print()
 
+@dataclass
+class NetStats(object):
+    tx: int = 0
+    rx: int = 0
+    drop: int = 0
+    loss: int = 0
+
+@dataclass
+class RoutingStats(object):
+    created: int = 0
+    delivered: int = 0
+    dropped: int = 0
+    hops: int = 0
+    latency: float = 0.0
+    started: int = 0
+    relayed: int = 0
+    removed: int = 0
+    aborted: int = 0
+    dups: int = 0
+    latency_avg: float = 0.0
+    delivery_prob: float = 0.0
+    hops_avg: float = 0.0
+    overhead_ratio: float = 0.0
 
 class NetSim(object):
     """A network simulator."""
@@ -168,7 +193,8 @@ class NetSim(object):
                 self.config["event_logging"] = True
 
             if self.config.get("event_logging", False):
-                log_file = os.getenv("LOG_FILE", "/tmp/events.log")
+                log_file = self.config.get("log_file", "/tmp/events.log")
+                log_file = os.getenv("LOG_FILE", log_file)
                 # if OS is windows replace /tmp/ with C:/temp/
                 if os.name == "nt":
                     log_file = log_file.replace("/tmp/", "C:/temp/")
@@ -194,7 +220,7 @@ class NetSim(object):
                 else:
                     raise Exception("unknown message generator type")
 
-        print(self.nodes)
+        # print(self.nodes)
         for n in self.nodes.values():
             n.calc_neighbors(0, self.nodes.values())
 
