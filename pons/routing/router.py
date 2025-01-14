@@ -6,8 +6,9 @@ HELLO_MSG_SIZE = 42
 
 
 class Router(object):
-    def __init__(self, scan_interval=2.0, capacity=0, apps=None):
+    def __init__(self, scan_interval=2.0, capacity=0, apps=None, verbose=True):
         self.scan_interval = scan_interval
+        self.verbose = verbose
         self.peers = []
         self.history = {}
         self.store = []
@@ -33,7 +34,12 @@ class Router(object):
         return str(self)
 
     def log(self, msg):
-        print("[ %f ] [%s : %s] ROUTER: %s" % (self.env.now, self.my_id, self, msg))
+        if self.netsim is not None:
+            verbose = self.netsim.config.get('verbose', False)
+        else:
+            verbose = self.verbose
+        if verbose:
+            print("[ %f ] [%s : %s] ROUTER: %s" % (self.env.now, self.my_id, self, msg))
 
     def send(self, to_nid: int, msg: pons.PayloadMessage):
         self.stats["tx"] += 1

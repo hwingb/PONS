@@ -20,7 +20,8 @@ class Node(object):
         node_name: str = "",
         net: List[NetworkSettings] = None,
         router: pons.routing.Router = None,
-        prefix: str = ""
+        prefix: str = "",
+        verbose = True
     ):
         self.id = node_id
         self.name = node_name
@@ -39,6 +40,7 @@ class Node(object):
         self.router = router
         self.neighbors = {}
         self.netsim = None
+        self.verbose = verbose
         for net in self.net.values():
             self.neighbors[net.name] = []
 
@@ -56,7 +58,13 @@ class Node(object):
             now = self.netsim.env.now
         else:
             now = 0
-        print("[ %f ] [ %d | %s ] NET: %s" % (now, self.id, self.name, msg))
+        
+        if self.netsim is not None:
+            verbose = self.netsim.config.get('verbose', False)
+        else:
+            verbose = self.verbose
+        if verbose:
+            print("[ %f ] [ %d | %s ] NET: %s" % (now, self.id, self.name, msg))
 
     def start(self, netsim: pons.NetSim):
         self.netsim = netsim
