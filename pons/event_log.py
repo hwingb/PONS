@@ -1,23 +1,50 @@
 from json import dumps, loads
 from typing import Tuple
 
+from pons.logging import EventAnalyzer
+
 event_log_fh = None
 event_filter = []
 
+registered_analyzers: set[EventAnalyzer] = set()
 
 def is_logging() -> bool:
     global event_log_fh
-    return event_log_fh is not None
+    global registered_analyzers
 
+    event_log_file_present = event_log_fh is not None
+    some_analyzers_registered = len(registered_analyzers) > 0
+
+    return event_log_file_present or some_analyzers_registered
 
 def open_log(filename: str = "/tmp/events.log"):
     global event_log_fh
     event_log_fh = open(filename, "w")
 
+def register_analyzer(analyzer: EventAnalyzer):
+    global registered_analyzers
+    registered_analyzers.add(analyzer)
+
+def register_analyzers(analyzers: list[EventAnalyzer]):
+    global registered_analyzers
+    registered_analyzers.update(analyzers)
+
+def unregister_analyzer(analyzer: EventAnalyzer):
+    global registered_analyzers
+    registered_analyzers.remove(analyzer)
+
+def unregister_analyzers(analyzers: list[EventAnalyzer]):
+    for analyzer in analyzers:
+        registered_analyzers.remove(analyzer)
+
 
 def event_log(ts: float, category: str, msg: dict):
     global event_log_fh
     global event_filter
+    global registered_analyzers
+
+    for analyzer in registered_analyzers:
+        analyzer.process(ts, category, msg)
 
     for f in event_filter:
         if f == category:
