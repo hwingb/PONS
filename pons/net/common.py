@@ -1,5 +1,4 @@
 from __future__ import annotations
-from pons.event_log import event_log
 from pons.net.contactplan import CommonContactPlan
 
 import random
@@ -24,6 +23,8 @@ def format_network_bandwidth(bandwidth: int) -> str:
         return f'{bandwidth/1_000_000_000:.1f} Gbit/s'
     elif bandwidth < 1_000_000_000_000_000:
         return f'{bandwidth/1_000_000_000_000:.1f} Tbit/s'
+    else:
+        return f'{bandwidth/1_000_000_000_000_000:.1f} Pbit/s'
 class NetworkSettings(object):
     """A network settings."""
 

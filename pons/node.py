@@ -17,9 +17,9 @@ class Node(object):
     def __init__(
         self,
         node_id: int,
+        router: pons.routing.Router,
         node_name: str = "",
-        net: List[NetworkSettings] = None,
-        router: pons.routing.Router = None,
+        net: List[NetworkSettings] | None = None,
         prefix: str = "",
         verbose = True
     ):
@@ -33,7 +33,7 @@ class Node(object):
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
-        self.net = {}
+        self.net = dict[str, NetworkSettings]()
         if net is not None:
             for n in net:
                 self.net[n.name] = deepcopy(n)
@@ -41,8 +41,8 @@ class Node(object):
         self.neighbors = {}
         self.netsim = None
         self.verbose = verbose
-        for net in self.net.values():
-            self.neighbors[net.name] = []
+        for network in self.net.values():
+            self.neighbors[network.name] = []
 
     def __str__(self):
         return "Node(%d (%s), %.02f, %.02f, %.02f)" % (
@@ -99,7 +99,7 @@ class Node(object):
                             tx_time = net.tx_time_for_contact(
                                 netsim.env.now, self.id, nid, msg.size
                             )
-                        except:
+                        except Exception as e:
                             print("Tx Time Error (%s %s): %s" % (self.id, to_nid, e))
 
                             continue
@@ -117,6 +117,8 @@ class Node(object):
                                 "id": self.id,
                                 "msg": msg.unique_id(),
                                 "to": nid,
+                                "net_name": net.name,
+                                "msg_size": msg.get_size()
                             },
                         )
                     else:
@@ -131,6 +133,8 @@ class Node(object):
                                 "id": self.id,
                                 "msg": msg.unique_id(),
                                 "to": nid,
+                                "net_name": net.name,
+                                "msg_size": msg.get_size()
                             },
                         )
                         # pass
@@ -157,6 +161,8 @@ class Node(object):
                                 "id": self.id,
                                 "msg": msg.unique_id(),
                                 "to": to_nid,
+                                "net_name": net.name,
+                                "msg_size": msg.get_size()
                             },
                         )
                         start_delayed(
@@ -174,6 +180,8 @@ class Node(object):
                                 "id": self.id,
                                 "msg": msg.unique_id(),
                                 "to": to_nid,
+                                "net_name": net.name,
+                                "msg_size": msg.get_size()
                             },
                         )
                         # pass
@@ -198,6 +206,8 @@ class Node(object):
                         "id": self.id,
                         "msg": msg.unique_id(),
                         "from": from_nid,
+                        "net_name": net.name,
+                        "msg_size": msg.get_size()
                     },
                 )
                 if self.router is not None:
@@ -220,15 +230,17 @@ class Node(object):
                             "id": self.id,
                             "msg": msg.unique_id(),
                             "to": from_nid,
+                            "net_name": net.name,
+                            "msg_size": msg.get_size()
                         },
                     )
 
 
 def generate_nodes(
     num_nodes: int,
+    router: pons.routing.Router,
     offset: int = 0,
-    net: List[NetworkSettings] = None,
-    router: pons.routing.Router = None,
+    net: List[NetworkSettings] | None = None,
     prefix: str = "",
 ):
     nodes = []
@@ -241,9 +253,9 @@ def generate_nodes(
 
 def generate_nodes_from_graph(
     graph: nx.Graph,
-    net: List[NetworkSettings] = None,
-    router: pons.Router = None,
-    contactplan: pons.net.ContactPlan = None,
+    router: pons.Router,
+    net: List[NetworkSettings] | None = None,
+    contactplan: pons.net.ContactPlan | None = None,
 ):
     nodes = []
     if net == None:
@@ -254,12 +266,12 @@ def generate_nodes_from_graph(
 
         net.append(
             NetworkSettings(
-                "networkplan-%d" % len(graph.nodes()),
+                "networkplan-%d" % len(graph.nodes),
                 range=0,
                 contactplan=plan,
             )
         )
-    for i, data in list(graph.nodes().data()):
+    for i, data in list(graph.nodes.data()):
         if (
             (isinstance(i, str) and i.startswith("net_"))
             or str.upper(graph.nodes[i].get("type", "node")) == "SWITCH"

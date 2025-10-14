@@ -48,9 +48,9 @@ class MessageAnalyzer(EventAnalyzer):
                         known_to_num_nodes = len(message_stats["received"].keys())
                         after = ts - message_stats["created"]
                         message_stats["known_to_num_nodes_after"][after] = known_to_num_nodes
-                        message_stats["permeation_after"][after] = known_to_num_nodes / (self.num_nodes -1) #since the message is also known to the origin node
+                        message_stats["permeation_after"][after] = known_to_num_nodes / (self.num_nodes -1) #since the message is also known to the origin node (does produce > 100% when src gets msg delivered to it)
 
         return super().process(ts, category, event, **kwargs)
 
-    def json(self) -> str:
-        return dumps(self.messages)
+    def json(self, **kw) -> str:
+        return dumps(self.messages, **kw)

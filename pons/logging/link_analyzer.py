@@ -52,7 +52,7 @@ class LinkAnalyzer(EventAnalyzer):
                 # active_links.add(tuple(link))
         return super().process(ts, category, event, **kwargs)
 
-    def json(self):
+    def json(self, **kw):
         for nuid, network in self.networks.items():
             total_tx_transfer=0
             total_rx_transfer=0
@@ -68,7 +68,7 @@ class LinkAnalyzer(EventAnalyzer):
             network["total_tx_transfer"] = total_tx_transfer
             network["total_rx_transfer"] = total_rx_transfer
             network["total_traffic"] = total_tx_transfer + total_rx_transfer
-        return dumps(self.networks)
+        return dumps(self.networks, **kw)
     
 
     def csv(self):

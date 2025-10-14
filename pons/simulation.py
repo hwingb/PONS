@@ -17,6 +17,9 @@ from dataclasses import dataclass
 
 aborted = False
 
+def is_aborted() -> bool:
+    global aborted
+    return aborted
 
 def printProgressBar(
     iteration,
@@ -97,8 +100,8 @@ class NetSim(object):
 
         self.duration = duration
         if "SIM_DURATION" in os.environ:
-            print("ENV SIM_DURATION found! Using duration: ", os.getenv("SIM_DURATION"))
-            self.duration = int(os.getenv("SIM_DURATION"))
+            print("ENV SIM_DURATION found! Using duration: ", os.getenv("SIM_DURATION", "NaN"))
+            self.duration = int(os.getenv("SIM_DURATION", "NaN"))
 
         # convert list from Node to dict with id as key
         self.nodes = {n.id: n for n in nodes}
@@ -222,7 +225,7 @@ class NetSim(object):
 
         # print(self.nodes)
         for n in self.nodes.values():
-            n.calc_neighbors(0, self.nodes.values())
+            n.calc_neighbors(0, list(self.nodes.values()))
 
     def using_contactplan(self):
         for n in self.nodes.values():
@@ -320,7 +323,7 @@ class NetSim(object):
         if self.using_contactplan():
             contacts = set()
             for n in self.nodes.values():
-                n.add_all_neighbors(self.env.now, self.nodes.values())
+                n.add_all_neighbors(self.env.now, list(self.nodes.values()))
                 for net in n.net.values():
                     contacts.update(net.contactplan.fixed_links())
 
@@ -348,9 +351,9 @@ class NetSim(object):
         else:
             now_sim = self.env.now
             for n in self.nodes.values():
-                n.calc_neighbors(now_sim, self.nodes.values())
+                n.calc_neighbors(now_sim, list(self.nodes.values()))
 
-        print("")
+        # print("")
         while self.env.now < self.duration + 1.0 and not aborted:
             # self.env.run(until=self.duration)
             now_sim = self.env.now
@@ -364,7 +367,7 @@ class NetSim(object):
             if diff > 60:
                 rate = (now_sim - last_sim) / diff
                 print(
-                    "\n\nsimulated %d seconds in %d seconds (%.2f x real time)"
+                    "\033[F\033[F\033[Fsimulated %d seconds in %d seconds (%.2f x real time)"
                     % (now_sim - last_sim, diff, rate)
                 )
                 print(

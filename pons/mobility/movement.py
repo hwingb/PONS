@@ -12,7 +12,7 @@ class OneMovement(object):
     """A The ONE movement file."""
 
     def __init__(
-        self, duration: float, num_nodes: int, width: int, height: int, moves=None
+        self, duration: float, num_nodes: int, width: float, height: float, moves=None
     ):
         self.duration = duration
         self.num_nodes = num_nodes
@@ -32,7 +32,7 @@ class OneMovement(object):
         )
 
     @classmethod
-    def from_file(cls, filename):
+    def from_file_slow(cls, filename):
         with open(filename, "r") as f:
             lines = f.readlines()
             first_line = lines[0].split()
@@ -50,6 +50,34 @@ class OneMovement(object):
                 y = float(y)
                 z = 0.0
                 moves.append((time, node_id, x, y, z))
+            return cls(duration, num_nodes, width, height, moves)
+    @classmethod
+    def from_file(cls, filename):
+        with open(filename, "r") as f:
+            is_first_line = True
+            line = f.readline()
+            moves = []
+            num_nodes = 0
+            duration = 0.0
+            width = 0.0
+            height = 0.0
+            while len(line) != 0:
+                if is_first_line:
+                    first_line = line.split()
+                    duration = float(first_line[1])
+                    width = float(first_line[3])
+                    height = float(first_line[5])
+                    is_first_line = False
+                else:
+                    time, node_id, x, y = line.split()
+                    time = float(time)
+                    node_id = int(node_id)
+                    num_nodes = max(num_nodes, node_id + 1)
+                    x = float(x)
+                    y = float(y)
+                    z = 0.0
+                    moves.append((time, node_id, x, y, z))
+                line = f.readline()
             return cls(duration, num_nodes, width, height, moves)
 
 
@@ -74,7 +102,7 @@ class OneMovementManager(object):
                 node.z = z
 
             for n in self.nodes.values():
-                n.calc_neighbors(time, self.nodes.values())
+                n.calc_neighbors(time, list(self.nodes.values()))
             self.env.process(self.move_next(time, node_id, x, y, z))
 
     def move_next(self, time, node_id, x, y, z):
@@ -106,7 +134,7 @@ class OneMovementManager(object):
 
         now = self.env.now
         for n in self.nodes.values():
-            n.calc_neighbors(now, self.nodes.values())
+            n.calc_neighbors(now, list(self.nodes.values()))
 
 
 def generate_randomwaypoint_movement(
